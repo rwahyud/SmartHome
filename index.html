@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b1220" />
+  <meta name="description" content="Smart Home IoT Dashboard (monitoring & kontrol manual)." />
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+  <link rel="icon" href="/icon-512.png" type="image/png" sizes="512x512" />
+  <link rel="mask-icon" href="/icon.svg" color="#0b1220" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+
+  <meta name="application-name" content="SmartHome" />
+  <meta name="mobile-web-app-capable" content="yes" />
+
+  <!-- iOS (Safari) -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="SmartHome" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- Windows -->
+  <meta name="msapplication-TileColor" content="#0b1220" />
+
+  <title>Smart Home Dashboard IoT</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg: #0b1220;
+      --surface: rgba(255, 255, 255, 0.06);
+      --surface2: rgba(255, 255, 255, 0.08);
+      --border: rgba(255, 255, 255, 0.12);
+      --text: #e8eefc;
+      --muted: rgba(232, 238, 252, 0.70);
+      --accent: #38bdf8;
+      --good: #22c55e;
+      --bad: #ef4444;
+      --warn: #fbbf24;
+      --shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+      --radius: 16px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--text);
+      background:
+        radial-gradient(900px 500px at 10% 0%, rgba(56,189,248,0.20), transparent 55%),
+        radial-gradient(700px 450px at 90% 15%, rgba(34,197,94,0.14), transparent 60%),
+        radial-gradient(900px 500px at 55% 100%, rgba(251,191,36,0.10), transparent 55%),
+        var(--bg);
+      min-height: 100vh;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(10px);
+      background: rgba(11, 18, 32, 0.68);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .topbar-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand-title {
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      line-height: 1.1;
+    }
+
+    .brand-sub {
+      color: var(--muted);
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+
+    .right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: rgba(232, 238, 252, 0.35);
+      box-shadow: 0 0 0 4px rgba(255,255,255,0.06);
+    }
+
+    .dot.good { background: var(--good); }
+    .dot.bad { background: var(--bad); }
+    .dot.warn { background: var(--warn); }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 12px;
+      font-weight: 750;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    button:hover { background: rgba(255,255,255,0.12); }
+    button:active { transform: translateY(1px); }
+    button:disabled { cursor: not-allowed; opacity: 0.6; }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+    }
+
+    .card {
+      grid-column: span 12;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      position: relative;
+      overflow: hidden;
+      text-align: left;
+    }
+
+    @media (min-width: 740px) {
+      .card.span-4 { grid-column: span 4; }
+      .card.span-6 { grid-column: span 6; }
+      .card.span-12 { grid-column: span 12; }
+    }
+
+    .card-title {
+      margin: 0 0 10px;
+      font-size: 12px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .card-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .value {
+      font-size: 36px;
+      font-weight: 850;
+      letter-spacing: -0.6px;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .unit {
+      font-size: 14px;
+      color: var(--muted);
+      margin-left: 6px;
+      font-weight: 700;
+    }
+
+    .hint {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .state {
+      font-family: var(--mono);
+      font-weight: 800;
+      color: rgba(232, 238, 252, 0.88);
+    }
+
+    .seg {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.04);
+    }
+
+    .seg button {
+      border: none;
+      border-right: 1px solid rgba(255,255,255,0.10);
+      border-radius: 0;
+      padding: 10px 14px;
+      background: transparent;
+    }
+
+    .seg button:last-child { border-right: none; }
+
+    .seg button.on {
+      color: #052e16;
+      background: rgba(34,197,94,0.95);
+    }
+
+    .seg button.off {
+      color: #450a0a;
+      background: rgba(239,68,68,0.90);
+    }
+
+    .seg button.active {
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.22);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 850;
+      letter-spacing: 0.2px;
+    }
+
+    .chart-wrap {
+      height: 360px;
+      background: rgba(0,0,0,0.16);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .chart-wrap.small {
+      height: 260px;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      max-width: min(420px, calc(100vw - 36px));
+      display: grid;
+      gap: 10px;
+      z-index: 50;
+    }
+
+    .toast-item {
+      background: rgba(11,18,32,0.82);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .toast-item strong { display: block; font-size: 13px; }
+    .toast-item span { color: var(--muted); font-size: 12px; }
+
+    .toast-item.good { border-color: rgba(34,197,94,0.35); }
+    .toast-item.bad { border-color: rgba(239,68,68,0.35); }
+    .toast-item.warn { border-color: rgba(251,191,36,0.35); }
+  </style>
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-title">Smart Home IoT Dashboard</div>
+        <div class="brand-sub">Realtime monitor & manual control</div>
+      </div>
+
+      <div class="right">
+        <span class="badge"><span class="dot" id="apiDot"></span><span id="apiStatus">API: memuat…</span></span>
+        <span class="badge"><span id="lastUpdate">last: —</span></span>
+        <button id="installBtn" type="button">Install</button>
+        <button id="refreshBtn" type="button">Refresh</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="grid">
+      <div class="card span-4">
+        <div class="card-title">Suhu</div>
+        <div class="card-main">
+          <div>
+            <span class="value" id="suhu">—</span><span class="unit">°C</span>
+          </div>
+        </div>
+        <div class="hint">
+          <span class="muted">Sensor suhu</span>
+          <span class="state" id="suhuState">—</span>
+        </div>
+      </div>
+
+      <div class="card span-4">
+        <div class="card-title">Cahaya (LDR)</div>
+        <div class="card-main">
+          <div>
+            <span class="value" id="ldr">—</span>
+          </div>
+        </div>
+        <div class="hint">
+          <span class="muted">Intensitas cahaya</span>
+          <span class="state" id="ldrState">—</span>
+        </div>
+      </div>
+
+      <div class="card span-4">
+        <div class="card-title">Gas</div>
+        <div class="card-main">
+          <div>
+            <span class="value" id="gas">—</span>
+          </div>
+        </div>
+        <div class="hint">
+          <span class="muted">Sensor gas</span>
+          <span class="state" id="gasState">—</span>
+        </div>
+      </div>
+
+      <div class="card span-6" id="lampuCard">
+        <div class="card-title">Lampu (Manual Control)</div>
+        <div class="card-main">
+          <div class="seg" role="group" aria-label="Kontrol lampu">
+            <button type="button" class="on" data-device="lampu" data-status="ON">ON</button>
+            <button type="button" class="off" data-device="lampu" data-status="OFF">OFF</button>
+          </div>
+          <div class="state" id="lampu">—</div>
+        </div>
+        <div class="hint">
+          <span class="muted">Klik untuk mengirim perintah</span>
+          <span class="badge" id="lampuHint">—</span>
+        </div>
+      </div>
+
+      <div class="card span-6" id="kipasCard">
+        <div class="card-title">Kipas (Manual Control)</div>
+        <div class="card-main">
+          <div class="seg" role="group" aria-label="Kontrol kipas">
+            <button type="button" class="on" data-device="kipas" data-status="ON">ON</button>
+            <button type="button" class="off" data-device="kipas" data-status="OFF">OFF</button>
+          </div>
+          <div class="state" id="kipas">—</div>
+        </div>
+        <div class="hint">
+          <span class="muted">Klik untuk mengirim perintah</span>
+          <span class="badge" id="kipasHint">—</span>
+        </div>
+      </div>
+
+      <div class="card span-12" id="buzzerCard">
+        <div class="card-title">Buzzer</div>
+        <div class="card-main">
+          <div class="state" id="buzzer">—</div>
+          <span class="badge" id="buzzerHint">status</span>
+        </div>
+        <div class="hint">
+          <span class="muted">Status perangkat</span>
+          <span class="state" id="buzzerState">—</span>
+        </div>
+      </div>
+
+      <div class="card span-6">
+        <div class="panel-header">
+          <h2 class="panel-title">Grafik Suhu (20 data)</h2>
+          <span class="badge">°C</span>
+        </div>
+        <div class="chart-wrap small">
+          <canvas id="chartSuhu"></canvas>
+        </div>
+      </div>
+
+      <div class="card span-6">
+        <div class="panel-header">
+          <h2 class="panel-title">Grafik Gas (20 data)</h2>
+          <span class="badge">ppm</span>
+        </div>
+        <div class="chart-wrap small">
+          <canvas id="chartGas"></canvas>
+        </div>
+      </div>
+
+      <div class="card span-12">
+        <div class="panel-header">
+          <h2 class="panel-title">Grafik LDR (20 data terakhir)</h2>
+          <span class="badge" id="pollInfo">interval: 3s</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chartLdr"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const POLL_MS = 3000;
+    const LOCALE = "id-ID";
+
+    // Gunakan timezone OS/browser (agar sama dengan jam laptop). Jangan dipaksa UTC.
+    const DEVICE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || "local";
+
+    const fmtDateTime = new Intl.DateTimeFormat(LOCALE, {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23"
+    });
+
+    const fmtClock = new Intl.DateTimeFormat(LOCALE, {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23"
+    });
+
+    const el = (id) => document.getElementById(id);
+
+    const $apiDot = el("apiDot");
+    const $apiStatus = el("apiStatus");
+    const $lastUpdate = el("lastUpdate");
+    const $pollInfo = el("pollInfo");
+    const $installBtn = el("installBtn");
+    const $refreshBtn = el("refreshBtn");
+
+    const $suhu = el("suhu");
+    const $ldr = el("ldr");
+    const $gas = el("gas");
+
+    const $suhuState = el("suhuState");
+    const $ldrState = el("ldrState");
+    const $gasState = el("gasState");
+
+    const $lampu = el("lampu");
+    const $kipas = el("kipas");
+    const $buzzer = el("buzzer");
+    const $buzzerState = el("buzzerState");
+    const $lampuHint = el("lampuHint");
+    const $kipasHint = el("kipasHint");
+
+    const $toast = el("toast");
+
+    function setDot(state) {
+      $apiDot.classList.remove("good", "bad", "warn");
+      if (state) $apiDot.classList.add(state);
+    }
+
+    function toast(title, message, kind = "good") {
+      const item = document.createElement("div");
+      item.className = `toast-item ${kind}`;
+
+      const left = document.createElement("div");
+      const strong = document.createElement("strong");
+      strong.textContent = title;
+      const span = document.createElement("span");
+      span.textContent = message;
+      left.appendChild(strong);
+      left.appendChild(span);
+
+      const close = document.createElement("button");
+      close.type = "button";
+      close.textContent = "Tutup";
+      close.style.padding = "6px 10px";
+      close.style.borderRadius = "10px";
+      close.addEventListener("click", () => item.remove());
+
+      item.appendChild(left);
+      item.appendChild(close);
+      $toast.appendChild(item);
+
+      window.setTimeout(() => {
+        item.remove();
+      }, 4500);
+    }
+
+    function parseTime(row) {
+      const t = row?.created_at ?? row?.waktu ?? row?.inserted_at ?? row?.timestamp;
+      if (!t) return null;
+
+      // Supabase bisa mengembalikan `timestamp without time zone` tanpa offset (mis. 2026-04-16T18:26:26).
+      // Jika tidak ada informasi timezone, kita anggap itu UTC supaya tampil sesuai jam laptop (local time).
+      if (typeof t === "string") {
+        const raw = t.trim();
+        const iso = raw.includes(" ") && !raw.includes("T") ? raw.replace(" ", "T") : raw;
+        const hasTz = /([zZ]|[+-]\d{2}:\d{2})$/.test(iso);
+        const normalized = hasTz ? iso : `${iso}Z`;
+        const d = new Date(normalized);
+        return Number.isNaN(d.getTime()) ? null : d;
+      }
+
+      const d = new Date(t);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    function fmtTime(d) {
+      try {
+        return fmtDateTime.format(d);
+      } catch {
+        return "-";
+      }
+    }
+
+    function fmtTimeOnly(d) {
+      try {
+        return fmtClock.format(d);
+      } catch {
+        return "-";
+      }
+    }
+
+    function setActiveButtons(device, status) {
+      const buttons = document.querySelectorAll(`button[data-device="${device}"]`);
+      buttons.forEach((b) => {
+        b.classList.toggle("active", b.dataset.status === status);
+      });
+    }
+
+    function setButtonDisabled(device, disabled) {
+      const buttons = document.querySelectorAll(`button[data-device="${device}"]`);
+      buttons.forEach((b) => (b.disabled = disabled));
+    }
+
+    function normalizeState(value) {
+      const s = String(value ?? "").trim().toUpperCase();
+      if (s === "ON" || s === "1" || s === "TRUE") return "ON";
+      if (s === "OFF" || s === "0" || s === "FALSE") return "OFF";
+      return value ?? "-";
+    }
+
+    function createLineChart(canvasId, label, borderColor, backgroundColor) {
+      const ctx = document.getElementById(canvasId).getContext("2d");
+
+      return new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label,
+              data: [],
+              borderColor,
+              backgroundColor,
+              borderWidth: 2,
+              fill: true,
+              tension: 0.35,
+              pointRadius: 2,
+              pointHoverRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: {
+            legend: {
+              labels: { color: "rgba(232, 238, 252, 0.82)" }
+            },
+            tooltip: {
+              backgroundColor: "rgba(11, 18, 32, 0.92)",
+              titleColor: "rgba(232, 238, 252, 0.95)",
+              bodyColor: "rgba(232, 238, 252, 0.90)",
+              borderColor: "rgba(255, 255, 255, 0.12)",
+              borderWidth: 1
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: "rgba(232, 238, 252, 0.62)" },
+              grid: { color: "rgba(255,255,255,0.06)" }
+            },
+            y: {
+              ticks: { color: "rgba(232, 238, 252, 0.62)" },
+              grid: { color: "rgba(255,255,255,0.06)" }
+            }
+          }
+        }
+      });
+    }
+
+    const chartSuhu = createLineChart(
+      "chartSuhu",
+      "Suhu (°C)",
+      "rgba(167, 139, 250, 0.95)",
+      "rgba(167, 139, 250, 0.12)"
+    );
+
+    const chartGas = createLineChart(
+      "chartGas",
+      "Gas",
+      "rgba(251, 191, 36, 0.95)",
+      "rgba(251, 191, 36, 0.12)"
+    );
+
+    const chartLdr = createLineChart(
+      "chartLdr",
+      "LDR",
+      "rgba(56, 189, 248, 0.95)",
+      "rgba(56, 189, 248, 0.10)"
+    );
+
+    async function loadData() {
+      const started = Date.now();
+      try {
+        const res = await fetch("/data", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+        if (!Array.isArray(data)) throw new Error("Format data tidak sesuai");
+
+        setDot("good");
+        $apiStatus.textContent = "API: ONLINE";
+
+        if (!data.length) {
+          $lastUpdate.textContent = "last: —";
+          return;
+        }
+
+        const latest = data[0] || {};
+
+        const suhu = Number(latest.suhu);
+        const ldr = Number(latest.ldr);
+        const gas = Number(latest.gas);
+
+        $suhu.textContent = Number.isFinite(suhu) ? suhu.toFixed(0) : "-";
+        $ldr.textContent = Number.isFinite(ldr) ? String(ldr) : "-";
+        $gas.textContent = Number.isFinite(gas) ? String(gas) : "-";
+
+        $suhuState.textContent = Number.isFinite(suhu) ? (suhu > 35 ? "PANAS" : "NORMAL") : "—";
+        $ldrState.textContent = Number.isFinite(ldr) ? (ldr < 300 ? "GELAP" : "TERANG") : "—";
+        $gasState.textContent = Number.isFinite(gas) ? (gas > 400 ? "WASPADA" : "AMAN") : "—";
+
+        const lampuState = normalizeState(latest.lampu);
+        const kipasState = normalizeState(latest.kipas);
+        const buzzerState = normalizeState(latest.buzzer);
+
+        $lampu.textContent = lampuState;
+        $kipas.textContent = kipasState;
+        $buzzer.textContent = buzzerState;
+
+        $buzzerState.textContent = buzzerState === "ON" ? "AKTIF" : (buzzerState === "OFF" ? "NONAKTIF" : "—");
+
+        if (lampuState === "ON" || lampuState === "OFF") setActiveButtons("lampu", lampuState);
+        if (kipasState === "ON" || kipasState === "OFF") setActiveButtons("kipas", kipasState);
+
+        const t = parseTime(latest);
+        $lastUpdate.textContent = `last: ${t ? fmtTime(t) : "-"}`;
+
+        const dataAsc = [...data].reverse();
+        const labels = dataAsc.map((d) => {
+          const td = parseTime(d);
+          return td ? fmtTimeOnly(td) : "-";
+        });
+
+        const ldrValues = dataAsc.map((d) => {
+          const n = Number(d.ldr);
+          return Number.isFinite(n) ? n : null;
+        });
+
+        const suhuValues = dataAsc.map((d) => {
+          const n = Number(d.suhu);
+          return Number.isFinite(n) ? n : null;
+        });
+
+        const gasValues = dataAsc.map((d) => {
+          const n = Number(d.gas);
+          return Number.isFinite(n) ? n : null;
+        });
+
+        chartLdr.data.labels = labels;
+        chartLdr.data.datasets[0].data = ldrValues;
+        chartLdr.update();
+
+        chartSuhu.data.labels = labels;
+        chartSuhu.data.datasets[0].data = suhuValues;
+        chartSuhu.update();
+
+        chartGas.data.labels = labels;
+        chartGas.data.datasets[0].data = gasValues;
+        chartGas.update();
+
+        const ms = Date.now() - started;
+        $pollInfo.textContent = `interval: ${Math.round(POLL_MS / 1000)}s | ok ${ms}ms`;
+      } catch (err) {
+        setDot("bad");
+        $apiStatus.textContent = "API: OFFLINE";
+        $pollInfo.textContent = `interval: ${Math.round(POLL_MS / 1000)}s | gagal`;
+        console.error(err);
+      }
+    }
+
+    async function sendControl(device, status) {
+      setButtonDisabled(device, true);
+      const hintEl = device === "lampu" ? $lampuHint : $kipasHint;
+      hintEl.textContent = "mengirim…";
+
+      try {
+        const res = await fetch(`/${device}/${status}`, { method: "POST" });
+        const body = await res.json().catch(() => null);
+
+        if (!res.ok) {
+          throw new Error(body?.error || `HTTP ${res.status}`);
+        }
+
+        if (device === "lampu") $lampu.textContent = status;
+        if (device === "kipas") $kipas.textContent = status;
+        setActiveButtons(device, status);
+
+        hintEl.textContent = `terkirim: ${status}`;
+        toast("Perintah terkirim", `${device.toUpperCase()} → ${status}`, "good");
+      } catch (err) {
+        hintEl.textContent = "gagal";
+        toast("Gagal kirim perintah", `${device.toUpperCase()}: ${err?.message ?? err}`, "bad");
+      } finally {
+        setButtonDisabled(device, false);
+      }
+    }
+
+    document.addEventListener("click", (e) => {
+      const btn = e.target?.closest?.("button[data-device][data-status]");
+      if (!btn) return;
+
+      const device = btn.dataset.device;
+      const status = btn.dataset.status;
+      sendControl(device, status);
+    });
+
+    $refreshBtn.addEventListener("click", () => loadData());
+
+    $pollInfo.textContent = `interval: ${Math.round(POLL_MS / 1000)}s`;
+
+    // PWA: tombol install (Chrome/Edge/Android). iOS: tidak ada prompt, pakai Safari → Share → Add to Home Screen.
+    let deferredInstallPrompt = null;
+
+    // Tampilkan tombol install hanya jika browser mengirim event install prompt.
+    // Kalau tidak muncul, tombol tetap bisa dipakai untuk menampilkan instruksi.
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+    });
+
+    window.addEventListener("appinstalled", () => {
+      deferredInstallPrompt = null;
+      toast("Terpasang", "Aplikasi sudah ter-install di device ini.", "good");
+    });
+
+    const isStandalone = window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone;
+    if (isStandalone) {
+      $installBtn.textContent = "Installed";
+      $installBtn.disabled = true;
+    }
+
+    $installBtn.addEventListener("click", async () => {
+      // Jika dibuka dari HP lewat http://IP:3000 (bukan localhost), install biasanya tidak muncul karena wajib HTTPS.
+      const isLocalhost = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+      const isSecure = location.protocol === "https:" || isLocalhost;
+
+      if (!isSecure) {
+        toast("Install belum tersedia", "Buka lewat HTTPS (mis. di Vercel). HTTP via IP LAN tidak bisa install PWA.", "warn");
+        return;
+      }
+
+      if (!deferredInstallPrompt) {
+        toast("Install", "Jika tidak ada popup, buka menu browser → Install app / Add to Home screen.", "warn");
+        return;
+      }
+
+      try {
+        deferredInstallPrompt.prompt();
+        const choice = await deferredInstallPrompt.userChoice;
+        deferredInstallPrompt = null;
+
+        if (choice?.outcome === "accepted") {
+          toast("Install", "Permintaan install diterima.", "good");
+        } else {
+          toast("Install", "Install dibatalkan.", "warn");
+        }
+      } catch {
+        deferredInstallPrompt = null;
+        toast("Install gagal", "Coba install dari menu browser.", "bad");
+      }
+    });
+
+    // PWA: register service worker (aktif di HTTPS atau localhost)
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js").catch((err) => {
+          console.error("SW register failed:", err);
+        });
+      });
+    }
+
+    loadData();
+    setInterval(loadData, POLL_MS);
+  </script>
+</body>
+</html>
